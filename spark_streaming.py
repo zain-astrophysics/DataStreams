@@ -3,10 +3,10 @@ from pyspark.streaming import StreamingContext
 
 # Initialize SparkContext and StreamingContext
 sc = SparkContext("local[2]", "StockDataStreaming")
-ssc = StreamingContext(sc, 5)  # Batch interval of 5 seconds
+ssc = StreamingContext(sc, 15)  # Batch interval of 5 seconds
 
-# Create a DStream by connecting to the socket server (localhost:1000)
-stock_stream = ssc.socketTextStream("localhost", 1000)
+# Create a DStream by connecting to the socket server (localhost:9999)
+stock_stream = ssc.socketTextStream("localhost", 9999)
 
 # Define the function to process the incoming data
 def process_stock_data(time, rdd):
