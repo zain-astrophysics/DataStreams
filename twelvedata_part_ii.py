@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 
-!pip install twelvedata
-
-
 
 import pandas as pd
 import time
