@@ -70,10 +70,17 @@ if __name__ == "__main__":
  #       ).alias('stock_data')
  #   )
 
+    stock = data.select(
+        split(data.value, ' ').getItem(0).alias('Date'),
+        split(data.value, ' ').getItem(1).alias('Symbol'),
+        split(data.value, ' ').getItem(2).cast('float').alias('Price')
+   )
 
 # Filter for AAPL prices
-    aaplPrice = stock.filter(col("stock") == "AAPL")
-    mstfPrice = stock.filter(col("stock") == "MSFT")
+    aaplPrice = stock.filter(col("Symbol") == "AAPL")
+    mstfPrice = stock.filter(col("Symbol") == "MSFT")
+
+
 
     #stock = data.select(
     #split(data.value, ' ').getItem(0).alias('Date'),
