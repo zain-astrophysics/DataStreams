@@ -84,7 +84,7 @@ else:
 
 for _, row in aapl_data.iterrows():
     print(row['datetime'].date(), row['stock'], row['high'])
-    time.sleep(2)
+    time.sleep(1)
 
 
 
