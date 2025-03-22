@@ -95,12 +95,14 @@ if __name__ == "__main__":
     #.format('console')\
     #.start()
 
-    msftquery = msftPrice.writeStream\
+    msftquery = msftPrice\
+    .writeStream\
     .outputMode('append')\
     .format('console')\
     .start()
     
-    aaplquery = aaplPrice.writeStream\
+    aaplquery = aaplPrice\
+    .writeStream\
     .outputMode('append')\
     .format('console')\
     .start()
