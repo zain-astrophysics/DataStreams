@@ -62,13 +62,21 @@ if __name__ == "__main__":
 
 
 
-    stock = data.select(
+ #   stock = data.select(
         # explode turns each item in an array into a separate row
-        explode(
-            split(data.value, ' ')
-        ).alias('stock_data')
-    )
+ #       explode(
+ #           split(data.value, ' ')
+ #       ).alias('stock_data')
+ #   )
 
+
+
+
+    stock = data.select(
+    split(data.value, ' ').getItem(0).alias('Date'),
+    split(data.value, ' ').getItem(1).alias('Symbol'),
+    split(data.value, ' ').getItem(2).cast('float').alias('Price')
+)
 
 
     query = stock\
