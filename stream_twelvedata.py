@@ -16,6 +16,7 @@ from pyspark.sql import SparkSession
 
 from pyspark.sql.functions import explode
 from pyspark.sql.functions import split
+from pyspark.sql.functions import col
 
 def setLogLevel(sc, level):
     from pyspark.sql import SparkSession
@@ -70,22 +71,35 @@ if __name__ == "__main__":
  #   )
 
 
+# Filter for AAPL prices
+    aaplPrice = stock.filter(col("stock") == "AAPL")
+    mstfPrice = stock.filter(col("stock") == "MSFT")
+
+    #stock = data.select(
+    #split(data.value, ' ').getItem(0).alias('Date'),
+    #split(data.value, ' ').getItem(1).alias('Symbol'),
+    #split(data.value, ' ').getItem(2).cast('float').alias('Price')
+#)
 
 
-    stock = data.select(
-    split(data.value, ' ').getItem(0).alias('Date'),
-    split(data.value, ' ').getItem(1).alias('Symbol'),
-    split(data.value, ' ').getItem(2).cast('float').alias('Price')
-)
+    #query = stock\
+    #.writeStream\
+    #.outputMode('append')\
+    #.format('console')\
+    #.start()
 
-
-    query = stock\
-    .writeStream\
+    msftquery = msftPrice.writeStream\
+    .outputMode('append')\
+    .format('console')\
+    .start()
+    
+    aaplquery = aaplPrice.writeStream\
     .outputMode('append')\
     .format('console')\
     .start()
 
 
 
-    query.awaitTermination()
-
+    #query.awaitTermination()
+    aaplquery.awaitTermination()
+    msftquery.awaitTermination()
