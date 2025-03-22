@@ -53,7 +53,7 @@ if __name__ == "__main__":
     print ('SparkContext', sc)
 
       # Create DataFrame representing the stream of input lines from connection to host:port
-    lines = spark\
+    data = spark\
         .readStream\
         .format('socket')\
         .option('host', host)\
@@ -62,18 +62,18 @@ if __name__ == "__main__":
 
 
 
-    words = lines.select(
+    stock = data.select(
         # explode turns each item in an array into a separate row
         explode(
-            split(lines.value, ' ')
-        ).alias('data')
+            split(data.value, ' ')
+        ).alias('stock_data')
     )
 
 
 
-    query = words\
+    query = stock\
     .writeStream\
-    .outputMode('complete')\
+    .outputMode('append')\
     .format('console')\
     .start()
 
