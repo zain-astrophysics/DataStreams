@@ -78,13 +78,13 @@ if not aapl_data.empty and not msft_data.empty:
 else:
     print("No data fetched.")
 
-#for i in range(len(all_data)):
-#    print(all_data.iloc[i])
-#    time.sleep(2)
-
-for _, row in all_data.iterrows():
-    print(row['datetime'].date(), row['stock'], row['high'])
+for i in range(len(all_data)):
+    print(all_data.iloc[i])
     time.sleep(2)
+
+#for _, row in all_data.iterrows():
+ #   print(row['datetime'].date(), row['stock'], row['high'])
+ #   time.sleep(2)
 
 
 
