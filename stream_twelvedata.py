@@ -24,7 +24,7 @@ def setLogLevel(sc, level):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: structured_network_wordcount.py <hostname> <port>", file=sys.stderr)
+        print("Usage: stream_twelvedata.py <hostname> <port>", file=sys.stderr)
         sys.exit(-1)
 
     print ('Argv', sys.argv)
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     time.sleep(15)
     print ('Ready to work!')
 
-    ctx = pyspark.SparkContext(appName = "Netcat Wordcount", master="local[*]")
+    ctx = pyspark.SparkContext(appName = "stock_data", master="local[*]")
     print ('Context', ctx)
 
     spark = SparkSession(ctx).builder.getOrCreate()
