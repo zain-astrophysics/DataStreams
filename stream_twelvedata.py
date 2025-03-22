@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
 # Filter for AAPL prices
     aaplPrice = stock.filter(col("Symbol") == "AAPL")
-    mstfPrice = stock.filter(col("Symbol") == "MSFT")
+    msftPrice = stock.filter(col("Symbol") == "MSFT")
 
 
 
