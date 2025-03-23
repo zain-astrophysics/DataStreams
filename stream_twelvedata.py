@@ -81,12 +81,17 @@ if __name__ == "__main__":
     msftPrice = stock.filter(col("Symbol") == "MSFT")
 
 
+# Define window specification for moving averages
+    windowSpec10 = Window.orderBy("Date").rowsBetween(-9, 0)  # 10-day window
+    windowSpec40 = Window.orderBy("Date").rowsBetween(-39, 0)  # 40-day window
 
-    #stock = data.select(
-    #split(data.value, ' ').getItem(0).alias('Date'),
-    #split(data.value, ' ').getItem(1).alias('Symbol'),
-    #split(data.value, ' ').getItem(2).cast('float').alias('Price')
-#)
+    # Calculate 10-day and 40-day moving averages for AAPL stock
+    aaplWithMAs = aaplPrice.withColumn("10DayMA", avg("Price").over(windowSpec10)) \
+                          .withColumn("40DayMA", avg("Price").over(windowSpec40))
+
+    # Calculate Buy/Sell signals based on moving averages comparison
+    aaplSignals = aaplWithMAs.withColumn("Signal", 
+                                        (col("10DayMA") > col("40DayMA")).cast("int") - (col("10DayMA") < col("40DayMA")).cast("int"))
 
 
     #query = stock\
@@ -95,13 +100,13 @@ if __name__ == "__main__":
     #.format('console')\
     #.start()
 
-    msftquery = msftPrice\
-    .writeStream\
-    .outputMode('append')\
-    .format('console')\
-    .start()
+    # msftquery = msftPrice\
+    # .writeStream\
+    # .outputMode('append')\
+    # .format('console')\
+    # .start()
     
-    aaplquery = aaplPrice\
+    aaplquery = aaplSignals\
     .writeStream\
     .outputMode('append')\
     .format('console')\
@@ -111,4 +116,4 @@ if __name__ == "__main__":
 
     #query.awaitTermination()
     aaplquery.awaitTermination()
-    msftquery.awaitTermination()
+    # msftquery.awaitTermination()
