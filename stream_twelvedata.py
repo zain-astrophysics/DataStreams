@@ -18,6 +18,9 @@ from pyspark.sql.functions import explode
 from pyspark.sql.functions import split
 from pyspark.sql.functions import col
 
+from pyspark.sql.functions import explode, split, col, avg, lag
+from pyspark.sql.window import Window
+
 def setLogLevel(sc, level):
     from pyspark.sql import SparkSession
     spark = SparkSession(sc)
