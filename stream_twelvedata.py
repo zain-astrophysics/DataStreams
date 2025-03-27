@@ -103,18 +103,18 @@ if __name__ == "__main__":
     #.format('console')\
     #.start()
 
-    msftquery = msftPrice\
+   msftquery = msftPrice\
      .writeStream\
      .outputMode('append')\
      .format('console')\
-     .option('truncate', 'false')
+     .option('truncate', 'false')\
      .start()
     
-    aaplquery = aaplPrice\
+   aaplquery = aaplPrice\
     .writeStream\
     .outputMode('append')\
     .format('console')\
-    .option('truncate', 'false')
+    .option('truncate', 'false')\
     .start()
 
 
