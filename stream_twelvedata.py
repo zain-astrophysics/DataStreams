@@ -107,12 +107,14 @@ if __name__ == "__main__":
      .writeStream\
      .outputMode('append')\
      .format('console')\
+     .option('truncate', 'false')
      .start()
     
     aaplquery = aaplPrice\
     .writeStream\
     .outputMode('append')\
     .format('console')\
+    .option('truncate', 'false')
     .start()
 
 
