@@ -8,12 +8,15 @@ Original file is located at
 """
 
 import sys, time
+from google.colab import drive
 import pyspark
 from pyspark.conf import SparkConf
 from pyspark.context import SparkContext
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import split, col, avg, when
 from pyspark.sql.window import Window
+from pyspark.sql.types import TimestampType
+
 
 def setLogLevel(sc, level):
     from pyspark.sql import SparkSession
@@ -55,27 +58,55 @@ if __name__ == "__main__":
 
     # Parse the data into columns
     stock = data.select(
-        split(data.value, ' ').getItem(0).alias('Date'),
+        split(data.value, ' ').getItem(0).alias('DateTime'),
         split(data.value, ' ').getItem(1).alias('Symbol'),
         split(data.value, ' ').getItem(2).cast('float').alias('Price')
     )
 
+
+
+    # Convert Datetime column to a proper timestamp type (if it's not already)
+    stock = stock.withColumn("Datetime", col("DateTime").cast(TimestampType() ))
+
+
     # Filter for AAPL stock data
     aaplPrice = stock.filter(col("Symbol") == "AAPL")
 
-    # Define window specification for moving averages
-    windowSpec10 = Window.orderBy("Date").rowsBetween(-9, 0)  # 10-day window
-    windowSpec40 = Window.orderBy("Date").rowsBetween(-39, 0)  # 40-day window
+    # Define time-based windows for moving averages (e.g., 10-minute and 40-minute windows for testing)
+    # You can adjust these to days, but let's use minutes for this example given the frequency of your data
+    windowSpec10 = Window(col("Datetime"), "10 days")  # 10-minute time window (adjust as needed)
+    windowSpec40 = Window(col("Datetime"), "40 days")  # 40-minute time window (adjust as needed)
 
-    # Calculate the 10-day and 40-day moving averages for AAPL
-    aaplWithMAs = aaplPrice.withColumn("10DayMA", avg("Price").over(windowSpec10)) \
-                           .withColumn("40DayMA", avg("Price").over(windowSpec40))
 
-    # Calculate Buy/Sell signals based on moving averages comparison
+    # # Define window specification for moving averages
+    # windowSpec10 = Window.orderBy("Date").rowsBetween(-9, 0)  # 10-day window
+    # windowSpec40 = Window.orderBy("Date").rowsBetween(-39, 0)  # 40-day window
+
+     # Calculate the 10-minute and 40-minute moving averages for AAPL
+    aaplWithMAs10 = aaplPrice.groupBy(windowSpec10).agg(avg("Price").alias("10DayMA"))
+    aaplWithMAs40 = aaplPrice.groupBy(windowSpec40).agg(avg("Price").alias("40DayMA"))
+
+    # Join the 10-minute and 40-minute moving averages on the timestamp
+    aaplWithMAs = aaplWithMAs10.join(aaplWithMAs40, "window", "outer")
+
+        # Calculate Buy/Sell signals based on moving averages comparison
     aaplSignals = aaplWithMAs.withColumn("Signal",
                                         when(col("10DayMA") > col("40DayMA"), 1)
                                         .when(col("10DayMA") < col("40DayMA"), -1)
                                         .otherwise(0))
+
+
+
+
+    # Calculate the 10-day and 40-day moving averages for AAPL
+    # aaplWithMAs = aaplPrice.withColumn("10DayMA", avg("Price").over(windowSpec10)) \
+    #                        .withColumn("40DayMA", avg("Price").over(windowSpec40))
+
+    # # Calculate Buy/Sell signals based on moving averages comparison
+    # aaplSignals = aaplWithMAs.withColumn("Signal",
+    #                                     when(col("10DayMA") > col("40DayMA"), 1)
+    #                                     .when(col("10DayMA") < col("40DayMA"), -1)
+    #                                     .otherwise(0))
 
     # Create two separate streams for 10-day and 40-day moving averages
     aapl10Day = aaplSignals.select("Date", "Symbol", "10DayMA", "Signal")
@@ -104,3 +135,6 @@ if __name__ == "__main__":
     aapl10Dayquery.awaitTermination()
     aapl40Dayquery.awaitTermination()
     # msftquery.awaitTermination()
+
+
+
