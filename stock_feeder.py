@@ -31,7 +31,8 @@ df['datetime'] = pd.to_datetime(df['datetime'])
 #df['date'] = df['datetime'].dt.date
 
 for _, row in df.iterrows():
-    print(row['datetime'].date(), row['stock'], row['close'], flush=True)
+    #print(row['datetime'].date(), row['stock'], row['close'], flush=True)
+    print(row['datetime'], row['stock'], row['close'], flush=True)
     time.sleep(2)
 
 
