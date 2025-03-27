@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
 
     # Convert Datetime column to a proper timestamp type (if it's not already)
-    stock = stock.withColumn("Datetime", col("Datetime").cast("timestamp"))
+    stock = stock.withColumn("Datetime", col("Date").cast("timestamp"))
 
     # Filter for AAPL stock data
     aaplPrice = stock.filter(col("Symbol") == "AAPL")
