@@ -60,6 +60,10 @@ if __name__ == "__main__":
         split(data.value, ' ').getItem(2).cast('float').alias('Price')
     )
 
+
+    # Convert Datetime column to a proper timestamp type (if it's not already)
+    stock = stock.withColumn("Datetime", col("Datetime").cast("timestamp"))
+
     # Filter for AAPL stock data
     aaplPrice = stock.filter(col("Symbol") == "AAPL")
 
