@@ -8,7 +8,7 @@ Original file is located at
 """
 
 import sys, time
-from google.colab import drive
+# from google.colab import drive
 import pyspark
 from pyspark.conf import SparkConf
 from pyspark.context import SparkContext
@@ -72,6 +72,7 @@ if __name__ == "__main__":
     # Filter for AAPL stock data
     aaplPrice = stock.filter(col("Symbol") == "AAPL")
 
+
     # Define time-based windows for moving averages (e.g., 10-minute and 40-minute windows for testing)
     # You can adjust these to days, but let's use minutes for this example given the frequency of your data
     windowSpec10 = window(col("Datetime"), "10 days")  # 10-minute time window (adjust as needed)
@@ -84,16 +85,16 @@ if __name__ == "__main__":
 
      # Calculate the 10-minute and 40-minute moving averages for AAPL
     aaplWithMAs10 = aaplPrice.groupBy(windowSpec10).agg(avg("Price").alias("10DayMA"))
-    aaplWithMAs40 = aaplPrice.groupBy(windowSpec40).agg(avg("Price").alias("40DayMA"))
+    # aaplWithMAs40 = aaplPrice.groupBy(windowSpec40).agg(avg("Price").alias("40DayMA"))
 
     # Join the 10-minute and 40-minute moving averages on the timestamp
-    aaplWithMAs = aaplWithMAs10.join(aaplWithMAs40, "window", "outer")
+    # aaplWithMAs = aaplWithMAs10.join(aaplWithMAs40, "window", "outer")
 
         # Calculate Buy/Sell signals based on moving averages comparison
-    aaplSignals = aaplWithMAs.withColumn("Signal",
-                                        when(col("10DayMA") > col("40DayMA"), 1)
-                                        .when(col("10DayMA") < col("40DayMA"), -1)
-                                        .otherwise(0))
+    # aaplSignals = aaplWithMAs.withColumn("Signal",
+                                        # when(col("10DayMA") > col("40DayMA"), 1)
+                                        # .when(col("10DayMA") < col("40DayMA"), -1)
+                                        # .otherwise(0))
 
 
 
@@ -109,8 +110,8 @@ if __name__ == "__main__":
     #                                     .otherwise(0))
 
     # Create two separate streams for 10-day and 40-day moving averages
-    aapl10Day = aaplSignals.select("DateTime", "Symbol", "10DayMA", "Signal")
-    aapl40Day = aaplSignals.select("DateTime", "Symbol", "40DayMA", "Signal")
+    # aapl10Day = aaplSignals.select("start", "Symbol", "10DayMA", "Signal")
+    # aapl40Day = aaplSignals.select("start", "Symbol", "40DayMA", "Signal")
 
     # Write the streams to console
     # msftquery = stock.filter(col("Symbol") == "MSFT") \
@@ -119,22 +120,20 @@ if __name__ == "__main__":
         # .format('console') \
         # .start()
 
-    aapl10Dayquery = aapl10Day \
+    aapl10Dayquery = aaplWithMAs10 \
         .writeStream \
         .outputMode('append') \
         .format('console') \
         .start()
 
-    aapl40Dayquery = aapl40Day \
-        .writeStream \
-        .outputMode('append') \
-        .format('console') \
-        .start()
+    # aapl40Dayquery = aapl40Day \
+        # .writeStream \
+        # .outputMode('append') \
+        # .format('console') \
+        # .start()
 
     # Await termination to keep the streaming jobs running
     aapl10Dayquery.awaitTermination()
-    aapl40Dayquery.awaitTermination()
+    # aapl40Dayquery.awaitTermination()
     # msftquery.awaitTermination()
-
-
 
