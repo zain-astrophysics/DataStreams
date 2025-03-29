@@ -75,8 +75,8 @@ if __name__ == "__main__":
 
     # Define time-based windows for moving averages (e.g., 10-minute and 40-minute windows for testing)
     # You can adjust these to days, but let's use minutes for this example given the frequency of your data
-    windowSpec10 = window(col("Datetime"), "10 days")  # 10-minute time window (adjust as needed)
-    windowSpec40 = window(col("Datetime"), "40 days")  # 40-minute time window (adjust as needed)
+    windowSpec10 = window(col("Datetime"), "14400 minutes", "1440 minutes ")  # 10-minute time window (adjust as needed)
+    # windowSpec40 = window(col("Datetime"), "40 days")  # 40-minute time window (adjust as needed)
 
 
     # # Define window specification for moving averages
