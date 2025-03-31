@@ -9,94 +9,101 @@ Original file is located at
 
 import pandas as pd
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, to_timestamp
-import sys, time
-# from google.colab import drive
-import pyspark
-from pyspark.conf import SparkConf
+from pyspark.sql.functions import col, split, lit
+#from pyspark.sql.streaming import GroupState, GroupStateTimeout
+import sys
+import time
 from pyspark.context import SparkContext
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import split, col, avg, when, window
-from pyspark.sql.window import Window
-from pyspark.sql.types import TimestampType
 
-
+# Initialize SparkSession and context
 def setLogLevel(sc, level):
     from pyspark.sql import SparkSession
     spark = SparkSession(sc)
     spark.sparkContext.setLogLevel(level)
 
+# Function to compute the rolling 10-day moving average
+def compute_10_day_ma(batch_df):
+    # We want to maintain a buffer of the last 10 prices for each symbol
+    buffer = {}  # A dictionary to store stock data buffers
+
+    results = []
+    for _, row in batch_df.iterrows():
+        symbol = row['Symbol']
+        price = row['Price']
+        timestamp = row['Datetime']
+
+        # Initialize buffer for this symbol if not exists
+        if symbol not in buffer:
+            buffer[symbol] = []
+
+        # Append the new price to the buffer
+        buffer[symbol].append((timestamp, price))
+
+        # Keep only the last 10 entries for each symbol
+        if len(buffer[symbol]) > 10:
+            buffer[symbol].pop(0)
+
+        # Calculate the moving average if we have at least 10 prices
+        if len(buffer[symbol]) == 10:
+            avg_price = sum(p[1] for p in buffer[symbol]) / 10
+            results.append((symbol, timestamp, avg_price))
+
+    # Convert the results into a DataFrame
+    if results:
+        result_df = pd.DataFrame(results, columns=['Symbol', 'Datetime', '10DayMA'])
+        return result_df
+    return pd.DataFrame(columns=['Symbol', 'Datetime', '10DayMA'])  # Empty dataframe if no results
+
+# Function to process each batch of streaming data
+def process_stream(batch_df, batch_id):
+    # Filter out the data from AAPL and MSFT and compute the 10-Day MA for each
+    batch_df = batch_df.toPandas()  # Convert to pandas dataframe to work with it easily
+    results_df = compute_10_day_ma(batch_df)
+
+    # Print the results (or write to another output sink like a file or database)
+    if not results_df.empty:
+        print(results_df)
+
+# Main entry point for the Spark application
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: stock_feeder.py <hostname> <port>", file=sys.stderr)
         sys.exit(-1)
 
-    print('Argv', sys.argv)
     host = sys.argv[1]
     port = int(sys.argv[2])
-    print('host', type(host), host, 'port', type(port), port)
 
+    # Initialize Spark context and session
     sc_bak = SparkContext.getOrCreate()
-    sc_bak.stop()
-    time.sleep(15)
-    print('Ready to work!')
+    sc_bak.stop()  # Stopping any existing Spark context
+    time.sleep(15)  # Wait for the context to be ready
 
-    ctx = pyspark.SparkContext(appName="stock_data", master="local[*]")
-    print('Context', ctx)
-
+    ctx = SparkContext(appName="stock_data", master="local[*]")
     spark = SparkSession(ctx).builder.getOrCreate()
-    sc = spark.sparkContext
 
-    setLogLevel(sc, "WARN")
-    print('Session:', spark)
-    print('SparkContext', sc)
+    setLogLevel(spark.sparkContext, "WARN")
 
     # Create DataFrame representing the stream of input lines from connection to host:port
-    data = spark \
-        .readStream \
-        .format('socket') \
-        .option('host', host) \
-        .option('port', port) \
-        .load()
+    data = spark.readStream.format("socket").option("host", host).option("port", port).load()
 
-    # Parse the data into columns
+    # Split the input data (space-separated) and extract DateTime, Symbol, and Price
     stock = data.select(
         split(data.value, ' ').getItem(0).alias('DateTime'),
         split(data.value, ' ').getItem(1).alias('Symbol'),
         split(data.value, ' ').getItem(2).cast('float').alias('Price')
     )
 
+    # Convert DateTime column to timestamp
+    stock = stock.withColumn("Datetime", col("DateTime").cast("timestamp"))
 
-
-    # Convert Datetime column to a proper timestamp type (if it's not already)
-    stock = stock.withColumn("Datetime", col("DateTime").cast(TimestampType() ))
-
-
-    # Filter for AAPL stock data
-    # aaplPrice = stock.filter(col("Symbol") == "AAPL")
-
- # Define a window specification to compute a 10-day moving average
-    window_spec = Window.partitionBy('Symbol').orderBy('Datetime').rowsBetween(-9, 0)
-
-    # Filter for AAPL stock and compute the 10-day moving average
-    aaplPrice = stock.filter(col("Symbol") == "AAPL").withColumn("10DayMA", avg("Price").over(window_spec))
-
-    # Filter for MSFT stock and compute the 10-day moving average
-    # msftPrice = stock.filter(col("Symbol") == "MSFT").withColumn("10DayMA", avg("Price").over(window_spec))
-
-    # Write the results to the console (for testing purposes)
-    aaplPrice.writeStream \
+    # Write the streaming data to a batch process function
+    query = stock.writeStream \
         .outputMode("append") \
-        .format("console") \
+        .foreachBatch(process_stream) \
         .start()
 
-    # msftPrice.writeStream \
-        # .outputMode("append") \
-        # .format("console") \
-        # .start()
-
-    # Wait for the streaming queries to finish
-    spark.streams.awaitAnyTermination()
+    # Wait for the stream to finish
+    query.awaitTermination()
 
 
 
