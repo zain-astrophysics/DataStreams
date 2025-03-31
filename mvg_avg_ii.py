@@ -7,10 +7,9 @@ Original file is located at
     https://colab.research.google.com/drive/1rZftFAE-Csn9YhMeCQSAhF53T5D9qgT5
 """
 
-import datetime
+import pandas as pd
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
-from pyspark.sql.streaming import GroupState, GroupStateTimeout
+from pyspark.sql.functions import col, to_timestamp
 import sys, time
 # from google.colab import drive
 import pyspark
@@ -76,72 +75,67 @@ if __name__ == "__main__":
     # Filter for AAPL stock data
     aaplPrice = stock.filter(col("Symbol") == "AAPL")
 
-# Assume `aaplPrice` is your streaming DataFrame with columns: "Datetime" and "Price", and "Stock"
-# (for this example, all rows have Stock = "AAPL", but the approach works for keyed streams)
+# Global state (this will be maintained in the driver for demonstration).
+# In production, use an external state store.
+global_state = None
 
-def update_moving_average(stock, rows, state: GroupState):
+def process_batch(batch_df, batch_id):
     """
-    For each stock symbol, update the state's buffer with new rows,
-    discard records older than 10 days from the latest timestamp,
-    and compute the 10-day moving average.
-
-    Parameters:
-      stock: key for the group (e.g., "AAPL")
-      rows: iterator over rows in the current micro-batch for that key.
-      state: GroupState to maintain the buffer of previous records.
-
-    Yields:
-      A tuple: (stock, current_time, 10_day_MA)
+    This function is called for every micro-batch.
+    It:
+       1. Converts the batch Spark DataFrame to a Pandas DataFrame.
+       2. Merges it with historical (global) data.
+       3. Prunes records older than 10 days from the current maximum timestamp.
+       4. Calculates the rolling 10 Day Moving Average using a time-based window.
+       5. Prints out the latest computed values.
     """
-    # Retrieve the existing state (buffer) if it exists; otherwise, initialize an empty list.
-    buffer = state.get("buffer") if state.exists else []
+    global global_state
+    import pandas as pd
 
-    # Extend the buffer with new rows
-    for row in rows:
-        # Each row is expected to have attributes "Datetime" (as Python datetime) and "Price"
-        buffer.append((row.Datetime, row.Price))
+    # Check if the batch is empty.
+    if batch_df.rdd.isEmpty():
+        return
 
-    # Ensure the buffer is sorted by datetime (oldest first)
-    buffer.sort(key=lambda x: x[0])
+    # Convert the current batch to a Pandas DataFrame.
+    batch_pdf = batch_df.toPandas()
+    batch_pdf['datetime'] = pd.to_datetime(batch_pdf['datetime'])
+    batch_pdf.sort_values('datetime', inplace=True)
 
-    # Use the most recent timestamp in the buffer as the current time
-    current_time = buffer[-1][0]
-    cutoff = current_time - datetime.timedelta(days=10)
+    # Merge with previous state.
+    if global_state is None:
+        global_state = batch_pdf
+    else:
+        global_state = pd.concat([global_state, batch_pdf], ignore_index=True)
 
-    # Remove records older than 10 days compared to current_time
-    buffer = [record for record in buffer if record[0] >= cutoff]
+    # Sort the combined data by datetime.
+    global_state.sort_values('datetime', inplace=True)
 
-    # Compute the 10-day moving average
-    avg_price = sum(record[1] for record in buffer) / len(buffer)
+    # Determine the latest timestamp and calculate the cutoff (10 days ago).
+    current_time = global_state['datetime'].max()
+    cutoff = current_time - pd.Timedelta(days=10)
 
-    # Update the state with the pruned buffer
-    state.update({"buffer": buffer})
+    # Prune data older than 10 days.
+    global_state = global_state[global_state['datetime'] >= cutoff]
 
-    # Yield a tuple with (Stock, current timestamp, moving average)
-    yield (stock, current_time, avg_price)
+    # Use a time-based rolling window to calculate the 10-day moving average.
+    # Set 'datetime' as the index for the rolling operation.
+    df_indexed = global_state.set_index('datetime')
+    df_indexed['10_day_MA'] = df_indexed['close'].rolling('10D', min_periods=1).mean()
 
-# In order to use mapGroupsWithState, we first key the stream by "Stock".
-# In PySpark, the API is available via groupByKey().
-# Note: mapGroupsWithState returns a Dataset of the stateful results.
-statefulMA = (
-    aaplPrice
-    .groupByKey(lambda row: row.Stock)
-    .flatMapGroupsWithState(
-        func=update_moving_average,
-        outputMode="update",  # this indicates we output a result each time the state is updated
-        timeoutConf=GroupStateTimeout.NoTimeout
-    )
-)
+    # For demonstration, print the last few rows with the moving average.
+    print(f"\nBatch {batch_id} - Latest 10 Day Moving Average:")
+    print(df_indexed.tail(3))
 
-# Define a schema for converting the stateful output to a DataFrame (if needed)
-resultDF = statefulMA.toDF(["Stock", "Datetime", "10_day_MA"])
+    # Optionally, you can write the result to an external sink (database, file, etc.)
+    # and update the global state accordingly (ensuring state is persisted reliably).
 
-# Write the results to the console for debugging, or use another sink as required.
-query = (
-    resultDF.writeStream
-    .outputMode("update")
-    .format("console")
+# Configure the streaming query with the foreachBatch sink.
+query = aaplPrice.writeStream \
+    .outputMode("append") \
+    .foreachBatch(process_batch) \
     .start()
-)
 
 query.awaitTermination()
+
+
+
