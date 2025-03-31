@@ -28,7 +28,7 @@ def setLogLevel(sc, level):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: stream_twelvedata.py <hostname> <port>", file=sys.stderr)
+        print("Usage: stock_feeder.py <hostname> <port>", file=sys.stderr)
         sys.exit(-1)
 
     print('Argv', sys.argv)
@@ -73,69 +73,30 @@ if __name__ == "__main__":
 
 
     # Filter for AAPL stock data
-    aaplPrice = stock.filter(col("Symbol") == "AAPL")
+    # aaplPrice = stock.filter(col("Symbol") == "AAPL")
 
-# Global state (this will be maintained in the driver for demonstration).
-# In production, use an external state store.
-global_state = None
+ # Define a window specification to compute a 10-day moving average
+    window_spec = Window.partitionBy('Symbol').orderBy('Datetime').rowsBetween(-9, 0)
 
-def process_batch(batch_df, batch_id):
-    """
-    This function is called for every micro-batch.
-    It:
-       1. Converts the batch Spark DataFrame to a Pandas DataFrame.
-       2. Merges it with historical (global) data.
-       3. Prunes records older than 10 days from the current maximum timestamp.
-       4. Calculates the rolling 10 Day Moving Average using a time-based window.
-       5. Prints out the latest computed values.
-    """
-    global global_state
-    import pandas as pd
+    # Filter for AAPL stock and compute the 10-day moving average
+    aaplPrice = stock.filter(col("Symbol") == "AAPL").withColumn("10DayMA", avg("Price").over(window_spec))
 
-    # Check if the batch is empty.
-    if batch_df.rdd.isEmpty():
-        return
+    # Filter for MSFT stock and compute the 10-day moving average
+    # msftPrice = stock.filter(col("Symbol") == "MSFT").withColumn("10DayMA", avg("Price").over(window_spec))
 
-    # Convert the current batch to a Pandas DataFrame.
-    batch_pdf = batch_df.toPandas()
-    batch_pdf['datetime'] = pd.to_datetime(batch_pdf['datetime'])
-    batch_pdf.sort_values('datetime', inplace=True)
+    # Write the results to the console (for testing purposes)
+    aaplPrice.writeStream \
+        .outputMode("append") \
+        .format("console") \
+        .start()
 
-    # Merge with previous state.
-    if global_state is None:
-        global_state = batch_pdf
-    else:
-        global_state = pd.concat([global_state, batch_pdf], ignore_index=True)
+    # msftPrice.writeStream \
+        # .outputMode("append") \
+        # .format("console") \
+        # .start()
 
-    # Sort the combined data by datetime.
-    global_state.sort_values('datetime', inplace=True)
-
-    # Determine the latest timestamp and calculate the cutoff (10 days ago).
-    current_time = global_state['datetime'].max()
-    cutoff = current_time - pd.Timedelta(days=10)
-
-    # Prune data older than 10 days.
-    global_state = global_state[global_state['datetime'] >= cutoff]
-
-    # Use a time-based rolling window to calculate the 10-day moving average.
-    # Set 'datetime' as the index for the rolling operation.
-    df_indexed = global_state.set_index('datetime')
-    df_indexed['10_day_MA'] = df_indexed['close'].rolling('10D', min_periods=1).mean()
-
-    # For demonstration, print the last few rows with the moving average.
-    print(f"\nBatch {batch_id} - Latest 10 Day Moving Average:")
-    print(df_indexed.tail(3))
-
-    # Optionally, you can write the result to an external sink (database, file, etc.)
-    # and update the global state accordingly (ensuring state is persisted reliably).
-
-# Configure the streaming query with the foreachBatch sink.
-query = aaplPrice.writeStream \
-    .outputMode("append") \
-    .foreachBatch(process_batch) \
-    .start()
-
-query.awaitTermination()
+    # Wait for the streaming queries to finish
+    spark.streams.awaitAnyTermination()
 
 
 
