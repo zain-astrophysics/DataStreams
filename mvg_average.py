@@ -137,3 +137,10 @@ if __name__ == "__main__":
     # aapl40Dayquery.awaitTermination()
     # msftquery.awaitTermination()
 
+
+
+
+
+
+
+
