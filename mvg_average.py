@@ -73,17 +73,11 @@ if __name__ == "__main__":
     aaplPrice = stock.filter(col("Symbol") == "AAPL")
 
 
-    # Define time-based windows for moving averages (e.g., 10-minute and 40-minute windows for testing)
     # You can adjust these to days, but let's use minutes for this example given the frequency of your data
-    windowSpec10 = window(col("Datetime"), "14400 minutes", "1440 minutes ")  # 10-minute time window (adjust as needed)
+    windowSpec10 = window(col("Datetime"), "14400 minutes", "1440 minutes ")  #
     # windowSpec40 = window(col("Datetime"), "40 days")  # 40-minute time window (adjust as needed)
 
 
-    # # Define window specification for moving averages
-    # windowSpec10 = Window.orderBy("Date").rowsBetween(-9, 0)  # 10-day window
-    # windowSpec40 = Window.orderBy("Date").rowsBetween(-39, 0)  # 40-day window
-
-     # Calculate the 10-minute and 40-minute moving averages for AAPL
     aaplWithMAs10 = aaplPrice.groupBy(windowSpec10).agg(avg("Price").alias("10DayMA"))
     # aaplWithMAs40 = aaplPrice.groupBy(windowSpec40).agg(avg("Price").alias("40DayMA"))
 
@@ -122,8 +116,9 @@ if __name__ == "__main__":
 
     aapl10Dayquery = aaplWithMAs10 \
         .writeStream \
-        .outputMode('append') \
+        .outputMode('complete') \
         .format('console') \
+        .trigger(processingTime="1 second")\
         .start()
 
     # aapl40Dayquery = aapl40Day \
@@ -136,11 +131,4 @@ if __name__ == "__main__":
     aapl10Dayquery.awaitTermination()
     # aapl40Dayquery.awaitTermination()
     # msftquery.awaitTermination()
-
-
-
-
-
-
-
 
