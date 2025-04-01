@@ -68,13 +68,14 @@ if __name__ == "__main__":
     # Convert Datetime column to a proper timestamp type (if it's not already)
     stock = stock.withColumn("Datetime", col("DateTime").cast(TimestampType() ))
 
+    stock_with_watermark = stock.withWatermark("Datetime", "15 minutes")
 
     # Filter for AAPL stock data
-    aaplPrice = stock.filter(col("Symbol") == "AAPL")
+    aaplPrice = stock_with_watermark.filter(col("Symbol") == "AAPL")
 
 
     # You can adjust these to days, but let's use minutes for this example given the frequency of your data
-    windowSpec10 = window(col("Datetime"), "14400 minutes", "1440 minutes ")  #
+    windowSpec10 = window(col("Datetime"), "10 days")  #
     # windowSpec40 = window(col("Datetime"), "40 days")  # 40-minute time window (adjust as needed)
 
 
@@ -89,8 +90,6 @@ if __name__ == "__main__":
                                         # when(col("10DayMA") > col("40DayMA"), 1)
                                         # .when(col("10DayMA") < col("40DayMA"), -1)
                                         # .otherwise(0))
-
-
 
 
     # Calculate the 10-day and 40-day moving averages for AAPL
@@ -118,7 +117,7 @@ if __name__ == "__main__":
         .writeStream \
         .outputMode('complete') \
         .format('console') \
-        .trigger(processingTime="1 second")\
+        .trigger(processingTime="15 seconds")\
         .start()
 
     # aapl40Dayquery = aapl40Day \
