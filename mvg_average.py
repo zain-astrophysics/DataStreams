@@ -68,7 +68,7 @@ if __name__ == "__main__":
     # Convert Datetime column to a proper timestamp type (if it's not already)
     stock = stock.withColumn("Datetime", col("DateTime").cast(TimestampType() ))
 
-    stock_with_watermark = stock.withWatermark("Datetime", "15 minutes")
+    stock_with_watermark = stock.withWatermark("Datetime", "1 day")
 
     # Filter for AAPL stock data
     aaplPrice = stock_with_watermark.filter(col("Symbol") == "AAPL")
