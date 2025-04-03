@@ -63,16 +63,23 @@ if __name__ == "__main__":
         .load()
 
 
-    stock = data.select(
-    # Combine Date and Time into DateTime (casting it to timestamp)
-    (split(data.value, ' ').getItem(0) + ' ' + split(data.value, ' ').getItem(1)).alias('DateTime')
-    )
 
+    # Split the incoming data into Date, Time, Symbol, and Price
+    #stock = data.select(
+    # Combine Date and Time into DateTime (casting it to timestamp)
+    #(split(data.value, ' ').getItem(0) + ' ' + split(data.value, ' ').getItem(1)).alias('DateTime'),
+    #split(data.value, ' ').getItem(2).alias('Symbol'),    # Symbol (AAPL, MSFT)
+    #split(data.value, ' ').getItem(3).cast('float').alias('Price')  # Price as float
+    #)
+
+    stock = data.select(
+    (split(data.value, ' ').getItem(0).cast('string') + ' ' + split(data.value, ' ').getItem(1).cast('string')).alias('DateTime'))
+    
+        
     # Convert Datetime column to a proper timestamp type (if it's not already)
-    stock = stock.withColumn('DateTime', (col('DateTime')).cast('string'))
+    #stock = stock.withColumn('DateTime', (col('DateTime')).cast('string'))
     stock = stock.withColumn('DateTime', to_timestamp(col('DateTime'), 'yyyy-MM-dd HH:mm:ss'))
     stock.printSchema()
-
 
 
    aaplquery = stock\
