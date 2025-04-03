@@ -37,8 +37,6 @@ if __name__ == "__main__":
     port = int(sys.argv[2])
     print ('host', type(host), host, 'port', type(port), port)
 
-
-
     sc_bak = SparkContext.getOrCreate()
     sc_bak.stop()
 
@@ -65,60 +63,27 @@ if __name__ == "__main__":
         .load()
 
 
-
- #   stock = data.select(
-        # explode turns each item in an array into a separate row
- #       explode(
- #           split(data.value, ' ')
- #       ).alias('stock_data')
- #   )
-
     stock = data.select(
-        split(data.value, ' ').getItem(0).alias('Date'),
-        split(data.value, ' ').getItem(1).alias('Symbol'),
-        split(data.value, ' ').getItem(2).cast('float').alias('Price')
-   )
+    # Combine Date and Time into DateTime (casting it to timestamp)
+    (split(data.value, ' ').getItem(0) + ' ' + split(data.value, ' ').getItem(1)).alias('DateTime')
+    )
 
-# Filter for AAPL prices
-    aaplPrice = stock.filter(col("Symbol") == "AAPL")
-    msftPrice = stock.filter(col("Symbol") == "MSFT")
-
-
-# Define window specification for moving averages
-    #windowSpec10 = Window.orderBy("Date").rowsBetween(-9, 0)  # 10-day window
-    #windowSpec40 = Window.orderBy("Date").rowsBetween(-39, 0)  # 40-day window
-
-    # Calculate 10-day and 40-day moving averages for AAPL stock
-    #aaplWithMAs = aaplPrice.withColumn("10DayMA", avg("Price").over(windowSpec10)) \
-     #                     .withColumn("40DayMA", avg("Price").over(windowSpec40))
-
-    # Calculate Buy/Sell signals based on moving averages comparison
-    #aaplSignals = aaplWithMAs.withColumn("Signal", 
-     #                                   (col("10DayMA") > col("40DayMA")).cast("int") - (col("10DayMA") < col("40DayMA")).cast("int"))
+    # Convert Datetime column to a proper timestamp type (if it's not already)
+    stock = stock.withColumn('DateTime', (col('DateTime')).cast('string'))
+    stock = stock.withColumn('DateTime', to_timestamp(col('DateTime'), 'yyyy-MM-dd HH:mm:ss'))
+    stock.printSchema()
 
 
-    #query = stock\
-    #.writeStream\
-    #.outputMode('append')\
-    #.format('console')\
-    #.start()
 
-   msftquery = msftPrice\
-     .writeStream\
-     .outputMode('append')\
-     .format('console')\
-     .option('truncate', 'false')\
-     .start()
-    
-   aaplquery = aaplPrice\
+   aaplquery = stock\
     .writeStream\
     .outputMode('append')\
     .format('console')\
-    .option('truncate', 'false')\
+    .option('truncate', 'true')\
     .start()
 
 
 
     #query.awaitTermination()
     aaplquery.awaitTermination()
-    msftquery.awaitTermination()
+    
