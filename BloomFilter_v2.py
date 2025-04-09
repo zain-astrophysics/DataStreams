@@ -108,6 +108,19 @@ bloom_filter = BloomFilter(size=2000, num_hashes=5)
 for word in bad_words:
     bloom_filter.add(word)
 
+# Function to process each batch of incoming data
+    def process_batch(batch_df, batch_id):
+        # Collect words from the batch dataframe
+        words = batch_df.collect()
+
+        # Check each word using the Bloom filter
+        results = [(word, word in bloom_filter) for word in words]
+        
+        # Print results
+        for word, is_bad in results:
+            print(f"Word: {word}, Is bad: {is_bad}")
+
+
 # Now we have the Bloom filter populated with bad words.
 # Example check
 #test_words = ["bad", "good", "worst", "best"]
@@ -116,14 +129,13 @@ test_words = data.select(
         split(data.value, ' ').getItem(0).alias('words'),       
    )
 
-# Check words using the Bloom filter
-results = [(word, word in bloom_filter) for word in test_words]
 
 # Output the results (True means the word is likely a bad word, False means it isn't)
 print(results)
 
-bloomfilter = results\
+bloomfilter = test_words\
     .writeStream\
+    .foreachBatch(process_batch)\
     .outputMode('append')\
     .format('console')\
     .start()
