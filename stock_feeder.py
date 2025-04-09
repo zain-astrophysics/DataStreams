@@ -9,31 +9,21 @@ Original file is located at
 
 import pandas as pd
 import time
-from google.colab import drive
+#from google.colab import drive
 import sys
 from datetime import datetime, timedelta
 from datetime import date
 
-# drive.mount('/content/drive', force_remount=True)
-# need_in_path = '/content/drive/My Drive/'
-# if need_in_path not in sys.path:
-#     sys.path.append('/content/drive/My Drive/')
-# file_path = "/content/drive/My Drive/stock_data.csv"  # Adjust this path as needed
-# df = pd.read_csv(file_path)
 
-# for _, row in all_data.iterrows():
-#     print(row['datetime'].date(), row['stock'], row['high'])
-#     time.sleep(2)
-
-from datetime import datetime, timedelta
 df = pd.read_csv('stock_data.csv')
 df['datetime'] = pd.to_datetime(df['datetime'])
-#df['date'] = df['datetime'].dt.date
 
+df['datetime'] = df['datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
 for _, row in df.iterrows():
-    #print(row['datetime'].date(), row['stock'], row['close'], flush=True)
     print(row['datetime'], row['stock'], row['close'], flush=True)
     time.sleep(2)
+
+
 
 
 
