@@ -57,7 +57,7 @@ def process_batch(batch_df, batch_id, bloom_filter):
     processed_df = batch_df.withColumn('is_bad', is_bad_word_udf(batch_df['words']))
     
     # Output the results to the console
-    processed_df.select('words', 'is_bad').write.format('console').outputMode('append').save()
+    processed_df.select('words', 'is_bad').write.format('console').outputMode('append')
 
 # UDF to check if a word is in the Bloom Filter
 def is_bad_word(word):
