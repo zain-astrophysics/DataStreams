@@ -109,7 +109,7 @@ for word in bad_words:
     bloom_filter.add(word)
 
 # Function to process each batch of incoming data
-def process_batch(batch_df, batch_id):
+def process_batch(batch_df):
     def check_word_in_bloom(word):
         return word in bloom_filter
 
