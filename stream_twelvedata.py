@@ -91,7 +91,7 @@ if __name__ == "__main__":
     aaplWithMA = aaplWithMA10.join(aaplWithMA40, ['Symbol',  'window'])
 
 
-    aaplquery = aaplPrice\
+    aaplquery = aaplWithMA\
     .writeStream\
     .outputMode('append')\
     .format('console')\
