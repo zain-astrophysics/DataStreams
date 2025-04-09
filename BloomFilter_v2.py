@@ -95,7 +95,7 @@ def load_bad_words():
     return bad_words
 
 # Initialize Spark context
-sc = SparkContext(appName="BloomFilterExample")
+#sc = SparkContext(appName="BloomFilterExample")
 
 # Load the list of bad words from AFINN
 bad_words = load_bad_words()
