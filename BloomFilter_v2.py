@@ -122,5 +122,14 @@ results = [(word, word in bloom_filter) for word in test_words]
 # Output the results (True means the word is likely a bad word, False means it isn't)
 print(results)
 
+bloomfilter = results\
+    .writeStream\
+    .outputMode('append')\
+    .format('console')\
+    .start()
+
+#query.awaitTermination()
+bloomfilter.awaitTermination()
+
 # Stop Spark context
-sc.stop()
+#sc.stop()
