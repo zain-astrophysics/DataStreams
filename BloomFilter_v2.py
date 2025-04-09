@@ -1,60 +1,17 @@
 import hashlib
 import bitarray
-import math
-from pyspark import SparkContext
-import sys, time
-import pyspark
-from pyspark.conf import SparkConf
-from pyspark.context import SparkContext
 from pyspark.sql import SparkSession
-from pyspark.sql.types import TimestampType
-from pyspark.sql.functions import *
+from pyspark.sql.functions import udf, split
+from pyspark.sql.types import BooleanType
 import requests
-
-
+import sys
+import time
+from pyspark import SparkContext
 
 def setLogLevel(sc, level):
     from pyspark.sql import SparkSession
     spark = SparkSession(sc)
     spark.sparkContext.setLogLevel(level)
-
-if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: drunk-speech.py <hostname> <port>", file=sys.stderr)
-        sys.exit(-1)
-
-    print ('Argv', sys.argv)
-
-    host = sys.argv[1]
-    port = int(sys.argv[2])
-    print ('host', type(host), host, 'port', type(port), port)
-
-
-    sc_bak = SparkContext.getOrCreate()
-    sc_bak.stop()
-
-    time.sleep(15)
-    print ('Ready to work!')
-
-    ctx = pyspark.SparkContext(appName = "bloomFilter", master="local[*]")
-    print ('Context', ctx)
-
-    spark = SparkSession(ctx).builder.getOrCreate()
-    sc = spark.sparkContext
-
-    setLogLevel(sc, "WARN")
-
-    print ('Session:', spark)
-    print ('SparkContext', sc)
-
-      # Create DataFrame representing the stream of input lines from connection to host:port
-    data = spark\
-        .readStream\
-        .format('socket')\
-        .option('host', host)\
-        .option('port', port)\
-        .load()
-  
 
 # Define the Bloom Filter class
 class BloomFilter:
@@ -81,9 +38,8 @@ class BloomFilter:
         """Check if a word is in the Bloom Filter."""
         return all(self.bit_array[hash_val] for hash_val in self._hashes(word))
 
-# Function to load AFINN list and filter out words with -4 or -5 rating
+# Load AFINN bad words
 def load_bad_words():
-    # Fetch the file from the URL
     url = "https://raw.githubusercontent.com/fnielsen/afinn/master/afinn/data/AFINN-en-165.txt"
     response = requests.get(url)
     bad_words = set()
@@ -95,55 +51,61 @@ def load_bad_words():
                 bad_words.add(word)
     return bad_words
 
-# Initialize Spark context
-#sc = SparkContext(appName="BloomFilterExample")
-
-# Load the list of bad words from AFINN
-bad_words = load_bad_words()
-
-# Initialize Bloom Filter with 2000 bits and 5 hash functions (adjust as needed)
-bloom_filter = BloomFilter(size=2000, num_hashes=5)
-
-# Add bad words to Bloom filter
-for word in bad_words:
-    bloom_filter.add(word)
-
 # Function to process each batch of incoming data
-def process_batch(batch_df):
-    def check_word_in_bloom(word):
-        return word in bloom_filter
-
-    check_udf = udf(check_word_in_bloom, BooleanType())
+def process_batch(batch_df, batch_id, bloom_filter):
+    # Apply the UDF to add an 'is_bad' column
+    processed_df = batch_df.withColumn('is_bad', is_bad_word_udf(batch_df['words']))
     
-    # Add 'is_bad' column to DataFrame
-    batch_df = batch_df.withColumn('is_bad', check_udf(batch_df['words']))
+    # Output the results to the console
+    processed_df.select('words', 'is_bad').write.format('console').outputMode('append').save()
 
-    # Filter for bad words
-    bad_words_df = batch_df.filter(batch_df['is_bad'] == True)
+# UDF to check if a word is in the Bloom Filter
+def is_bad_word(word):
+    # Access the broadcasted Bloom Filter
+    return word in bloom_filter.value
 
-    # Show bad words
-    bad_words_df.show(truncate=False)
+# Register UDF with Spark
+# We will register this UDF later when broadcasting the Bloom filter
+is_bad_word_udf = udf(is_bad_word, BooleanType())
 
-# Now we have the Bloom filter populated with bad words.
-# Example check
-#test_words = ["bad", "good", "worst", "best"]
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: drunk-speech.py <hostname> <port>", file=sys.stderr)
+        sys.exit(-1)
 
-test_words = data.select(
-        split(data.value, ' ').getItem(0).alias('words'),       
-   )
+    print('Argv', sys.argv)
 
-# Output the results (True means the word is likely a bad word, False means it isn't)
-#print(results)
+    host = sys.argv[1]
+    port = int(sys.argv[2])
+    print('host', type(host), host, 'port', type(port), port)
 
-bloomfilter = test_words\
-    .writeStream\
-    .foreachBatch(process_batch)\
-    .outputMode('append')\
-    .format('console')\
-    .start()
+    # Initialize Spark context
+    sc = SparkContext(appName="BloomFilterExample", master="local[*]")
+    spark = SparkSession(sc)
 
-#query.awaitTermination()
-bloomfilter.awaitTermination()
+    # Set logging level
+    setLogLevel(sc, "WARN")
 
-# Stop Spark context
-#sc.stop()
+    # Load bad words from AFINN and initialize Bloom filter
+    bad_words = load_bad_words()
+    bloom_filter = BloomFilter(size=2000, num_hashes=5)
+
+    # Add bad words to the Bloom filter
+    for word in bad_words:
+        bloom_filter.add(word)
+
+    # Broadcast the Bloom filter
+    broadcast_bloom_filter = sc.broadcast(bloom_filter)
+
+    # Register the UDF to use the broadcasted Bloom filter
+    is_bad_word_udf = udf(lambda word: word in broadcast_bloom_filter.value, BooleanType())
+
+    # Create DataFrame representing the stream of input lines from connection to host:port
+    data = spark.readStream.format('socket').option('host', host).option('port', port).load()
+
+    # Extract words from the incoming stream
+    test_words = data.select(explode(split(data.value, ' ')).alias('words'))
+    # Write stream with processing batch
+    query = test_words.writeStream.foreachBatch(lambda batch_df, batch_id: process_batch(batch_df, batch_id, broadcast_bloom_filter)).outputMode('append').start()
+
+    query.awaitTermination()
