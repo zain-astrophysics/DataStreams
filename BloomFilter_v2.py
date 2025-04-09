@@ -131,7 +131,7 @@ test_words = data.select(
 
 
 # Output the results (True means the word is likely a bad word, False means it isn't)
-print(results)
+#print(results)
 
 bloomfilter = test_words\
     .writeStream\
