@@ -82,9 +82,13 @@ class BloomFilter:
 
 # Function to load AFINN list and filter out words with -4 or -5 rating
 def load_bad_words():
+    # Fetch the file from the URL
+    url = "https://raw.githubusercontent.com/fnielsen/afinn/master/afinn/data/AFINN-en-165.txt"
+    response = requests.get(url)
     bad_words = set()
-    with open("https://raw.githubusercontent.com/fnielsen/afinn/master/afinn/data/AFINN-en-165.txt") as file:
-        for line in file:
+    if response.status_code == 200:
+        content = response.text
+        for line in content.splitlines():
             word, rating = line.strip().split('\t')
             if int(rating) <= -4:  # We only care about words with rating -4 or -5
                 bad_words.add(word)
