@@ -7,80 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1OfNNi2v3U458ODDHK1_yJyH1lu5tYvlp
 """
 
-# import sys, time
-
-# import pyspark
-# from pyspark.conf import SparkConf
-# from pyspark.context import SparkContext
-# from pyspark.sql import SparkSession
-
-# from pyspark.sql.functions import explode
-# from pyspark.sql.functions import split
-
-# def setLogLevel(sc, level):
-#     from pyspark.sql import SparkSession
-#     spark = SparkSession(sc)
-#     spark.sparkContext.setLogLevel(level)
-
-# if __name__ == "__main__":
-#     if len(sys.argv) != 3:
-#         print("Usage: structured_network_wordcount.py <hostname> <port>", file=sys.stderr)
-#         sys.exit(-1)
-
-#     print ('Argv', sys.argv)
-
-#     host = sys.argv[1]
-#     port = int(sys.argv[2])
-#     print ('host', type(host), host, 'port', type(port), port)
-
-
-
-#     sc_bak = SparkContext.getOrCreate()
-#     sc_bak.stop()
-
-#     time.sleep(15)
-#     print ('Ready to work!')
-
-#     ctx = pyspark.SparkContext(appName = "Stock Data", master="local[*]")
-#     print ('Context', ctx)
-
-#     spark = SparkSession(ctx).builder.getOrCreate()
-#     sc = spark.sparkContext
-
-#     setLogLevel(sc, "WARN")
-
-#     print ('Session:', spark)
-#     print ('SparkContext', sc)
-
-#       # Create DataFrame representing the stream of input lines from connection to host:port
-#     data = spark\
-#         .readStream\
-#         .format('socket')\
-#         .option('host', host)\
-#         .option('port', port)\
-#         .load()
-
-
-
-#     stock = data.select(
-#         # explode turns each item in an array into a separate row
-#         explode(
-#             split(data.value, ' ')
-#         ).alias('stock_data')
-#     )
-
-
-
-#     query = stock\
-#     .writeStream\
-#     .outputMode('append')\
-#     .format('console')\
-#     .start()
-
-
-
-#     query.awaitTermination()
-
 import sys, time
 
 import pyspark
@@ -89,10 +15,9 @@ from pyspark.context import SparkContext
 from pyspark.sql import SparkSession
 from pyspark.sql.types import TimestampType
 
-from pyspark.sql.functions import explode
+from pyspark.sql.functions import *
 from pyspark.sql.functions import split
 from pyspark.sql.functions import col
-
 
 
 
@@ -145,22 +70,26 @@ if __name__ == "__main__":
         split(data.value, ' ').getItem(3).cast('float').alias('Price')
    )
 
-
-
 # Convert Datetime column to a proper timestamp type (if it's not already)
     # stock = stock.withColumn("Date", col("Date").cast(TimestampType() ))
 
 
-# Filter for AAPL and MSFT prices
-    aaplPrice = stock.filter(col("Symbol") == "AAPL")
-    msftPrice = stock.filter(col("Symbol") == "MSFT")
+    stock_with_timestamp = stock.withColumn(
+    'Timestamp',
+    to_timestamp(concat_ws(' ', stock['Date'], stock['Time']), 'yyyy-MM-dd HH:mm:ss')
+)
 
 
-    msftquery = msftPrice\
-    .writeStream\
-    .outputMode('append')\
-    .format('console')\
-    .start()
+# Filter for AAPL prices
+    aaplPrice = stock_with_timestamp.filter(col("Symbol") == "AAPL").select('Timestamp', 'Symbol', 'Price')
+    msftPrice = stock_with_timestamp.filter(col("Symbol") == "MSFT").select('Timestamp', 'Symbol', 'Price')
+    aaplPrice = aaplPrice.withWatermark('Timestamp', '10 minutes')
+    aaplWithMA10 = aaplPrice.groupBy(window('Timestamp', '10 minutes'), 'Symbol').agg(avg('Price').alias('10minMA'))
+    aaplWithMA40 = aaplPrice.groupBy(window('Timestamp', '40 minutes'), 'Symbol').agg(avg('Price').alias('40minMA'))
+    
+    # Join the two streams
+    aaplWithMA = aaplWithMA10.join(aaplWithMA40, ['Symbol',  'window'])
+
 
     aaplquery = aaplPrice\
     .writeStream\
@@ -169,8 +98,7 @@ if __name__ == "__main__":
     .start()
 
 
-
     #query.awaitTermination()
     aaplquery.awaitTermination()
-    msftquery.awaitTermination()
+
 
