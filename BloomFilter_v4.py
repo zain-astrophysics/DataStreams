@@ -45,7 +45,7 @@ def process_batch(batch_df, batch_id, bloom_filter):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: script.py <hostname> <port>", file=sys.stderr)
+        print("Usage: drunk-speech.py <hostname> <port>", file=sys.stderr)
         sys.exit(-1)
 
     host = sys.argv[1]
