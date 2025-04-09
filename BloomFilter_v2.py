@@ -109,13 +109,14 @@ for word in bad_words:
     bloom_filter.add(word)
 
 # Function to process each batch of incoming data
-    def process_batch(batch_df, batch_id):
+    def process_batch(batch_df):
         # Collect words from the batch dataframe
-        words = batch_df.collect()
-
+        result_df = batch_df.withColumn('good_words', batch_df['words'].rlike('|'.join(bad_words)))
         # Check each word using the Bloom filter
-        results = [(word, word in bloom_filter) for word in words]
-        print(results)
+        clean_df = result_df.filter('is_good = false')
+
+        #results = [(word, word in bloom_filter) for word in words]
+        #print(results)
         # Print results
         #for word, is_bad in results:
         #    print(f"Word: {word}, Is bad: {is_bad}")
