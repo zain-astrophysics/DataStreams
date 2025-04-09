@@ -132,7 +132,6 @@ test_words = data.select(
         split(data.value, ' ').getItem(0).alias('words'),       
    )
 
-
 # Output the results (True means the word is likely a bad word, False means it isn't)
 #print(results)
 
