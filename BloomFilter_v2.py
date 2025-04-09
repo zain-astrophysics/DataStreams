@@ -115,10 +115,10 @@ for word in bad_words:
 
         # Check each word using the Bloom filter
         results = [(word, word in bloom_filter) for word in words]
-        
+        print(results)
         # Print results
-        for word, is_bad in results:
-            print(f"Word: {word}, Is bad: {is_bad}")
+        #for word, is_bad in results:
+        #    print(f"Word: {word}, Is bad: {is_bad}")
 
 
 # Now we have the Bloom filter populated with bad words.
