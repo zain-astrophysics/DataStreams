@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
     # Use Hadoop commands to upload to HDFS
     import os
-    os.system(f"hdfs dfs -put ~/DataStreams/bloom_filter.txt {/user/zainabbas199166/datastreams}")
+    os.system(f"hadoop fs -put ~/DataStreams/bloom_filter.txt /user/zainabbas199166/datastreams")
 
     # Read the Base64-encoded file from HDFS
     hdfs_data = spark.read.text(hdfs_path).collect()[0][0]
