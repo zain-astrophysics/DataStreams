@@ -57,6 +57,13 @@ def process_batch(batch_df, batch_id, bloom_filter):
         print(f"{word} - {'BAD' if is_bad else 'GOOD'}")
 
 if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: drunk-speech.py <hostname> <port>", file=sys.stderr)
+        sys.exit(-1)
+
+    host = sys.argv[1]
+    port = int(sys.argv[2])
+    
     # Spark session and context setup
     sc = SparkContext(appName="BloomFilterExample", master="local[*]")
     spark = SparkSession(sc)
