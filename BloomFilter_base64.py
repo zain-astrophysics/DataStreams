@@ -7,6 +7,7 @@ import requests
 import sys
 from pyspark import SparkContext
 
+
 class BloomFilter:
     def __init__(self, size: int, num_hashes: int):
         self.size = size
@@ -31,9 +32,13 @@ class BloomFilter:
     @staticmethod
     def from_base64(encoded_str, size, num_hashes):
         """Reconstruct the BloomFilter from a Base64 string."""
+        # Fix padding dynamically
+        def fix_padding(s):
+            return s + '=' * ((4 - len(s) % 4) % 4)
         bloom_filter = BloomFilter(size, num_hashes)
+        padded_str = fix_padding(encoded_str)
         bloom_filter.bit_array = bitarray.bitarray()
-        bloom_filter.bit_array.frombytes(base64.b64decode(encoded_str))
+        bloom_filter.bit_array.frombytes(base64.b64decode(padded_str))
         return bloom_filter
 
 def load_bad_words():
