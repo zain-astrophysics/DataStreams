@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
     # Save bit array to HDFS as Base64-encoded string
     bit_array_base64 = bloom_filter.to_base64()
-    with open("/DataStreams/bloom_filter.txt", "w") as f:
+    with open("/home/zainabbas199166/DataStreams/bloom_filter.txt", "w") as f:
         f.write(bit_array_base64)
 
     # Use Hadoop commands to upload to HDFS
