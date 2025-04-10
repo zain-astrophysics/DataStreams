@@ -59,7 +59,7 @@ if __name__ == "__main__":
         print("Usage: drunk-speech.py <hostname> <port>", file=sys.stderr)
         sys.exit(-1)
 
-    host, port, hdfs_path = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+    host, port = sys.argv[1], int(sys.argv[2])
 
     sc = SparkContext(appName="BloomFilterExample", master="local[*]")
     spark = SparkSession(sc)
@@ -78,7 +78,8 @@ if __name__ == "__main__":
 
     # Use Hadoop commands to upload to HDFS
     import os
-    os.system(f"hadoop fs -put ~/DataStreams/bloom_filter.txt /user/zainabbas199166/datastreams")
+    hdfs_path = "/user/zainabbas199166/datastreams"
+    os.system(f"hadoop fs -put ~/DataStreams/bloom_filter.txt {hdfs_path}")
 
     # Read the Base64-encoded file from HDFS
     hdfs_data = spark.read.text(hdfs_path).collect()[0][0]
