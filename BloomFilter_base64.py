@@ -73,12 +73,12 @@ if __name__ == "__main__":
 
     # Save bit array to HDFS as Base64-encoded string
     bit_array_base64 = bloom_filter.to_base64()
-    with open("/tmp/bloom_filter.txt", "w") as f:
+    with open("/DataStreams/bloom_filter.txt", "w") as f:
         f.write(bit_array_base64)
 
     # Use Hadoop commands to upload to HDFS
     import os
-    os.system(f"hdfs dfs -put /tmp/bloom_filter.txt {hdfs_path}")
+    os.system(f"hdfs dfs -put ~/DataStreams/bloom_filter.txt {/user/zainabbas199166/datastreams}")
 
     # Read the Base64-encoded file from HDFS
     hdfs_data = spark.read.text(hdfs_path).collect()[0][0]
