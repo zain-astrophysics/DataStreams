@@ -6,7 +6,7 @@ from pyspark.sql.functions import explode, split
 import requests
 import sys
 from pyspark import SparkContext
-
+import os
 
 class BloomFilter:
     def __init__(self, size: int, num_hashes: int):
@@ -70,11 +70,11 @@ if __name__ == "__main__":
 
     # Save Bloom filter bit array to HDFS once at the beginning
     bit_array_base64 = bloom_filter.to_base64()
-    with open("/home/user/DataStreams/bloom_filter.txt", "w") as f:
+    with open("/home/user/zainabbas199166/DataStreams/bloom_filter.txt", "w") as f:
         f.write(bit_array_base64)
 
-    # Use Hadoop API for uploading to HDFS
-    hdfs_client.upload(hdfs_path, '/home/user/DataStreams/bloom_filter.txt')
+    hdfs_path = "/user/zainabbas199166/datastreams"
+    os.system(f"hadoop fs -put ~/DataStreams/bloom_filter.txt {hdfs_path}")
 
     # Load the Bloom filter from HDFS
     hdfs_data = spark.read.text(hdfs_path).collect()[0][0]
