@@ -3,6 +3,15 @@ from pyspark.sql.functions import split, col, to_timestamp, concat_ws
 import sys
 import time
 from datetime import datetime, timedelta
+import pyspark
+from pyspark.conf import SparkConf
+from pyspark.context import SparkContext
+from pyspark.sql import SparkSession
+from pyspark.sql.types import TimestampType
+
+
+
+
 
 #Define the StockDetector class
 
