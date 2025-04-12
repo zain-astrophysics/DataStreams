@@ -64,7 +64,10 @@ class StockDetector:
         self.last_signal_index = len(self.data) - 1
         return signals
 
-
+def setLogLevel(sc, level):
+    from pyspark.sql import SparkSession
+    spark = SparkSession(sc)
+    spark.sparkContext.setLogLevel(level)
 
 # 💡 Create Spark Streaming Job
 if __name__ == "__main__":
