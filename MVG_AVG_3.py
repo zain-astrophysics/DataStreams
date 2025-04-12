@@ -133,8 +133,8 @@ if __name__ == "__main__":
 
 
 # Filter for AAPL and MSFT prices
-    aaplPrice = stock.filter(col("Symbol") == "AAPL").select('Timestamp', 'Symbol', 'Price')
-    msftPrice = stock.filter(col("Symbol") == "MSFT").select('Timestamp', 'Symbol', 'Price')
+    aaplPrice = stock_with_timestamp.filter(col("Symbol") == "AAPL").select('Timestamp', 'Symbol', 'Price')
+    #msftPrice = stock.filter(col("Symbol") == "MSFT").select('Timestamp', 'Symbol', 'Price')
 
     # Step 5: Initialize the detector
     detector = StockDetector()
