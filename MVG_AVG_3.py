@@ -5,86 +5,139 @@ import time
 from datetime import datetime, timedelta
 
 #Define the StockDetector class
+
+# Define a class to track stock data and detect crossovers
 class StockDetector:
-    def __init__(self, short_window=10, long_window=40):
-        self.prices = []  # list of (timestamp, price)
-        self.short_window = short_window
-        self.long_window = long_window
-        self.last_signal = None  # To prevent repeated signals
+    # Initializes a new tracker for a specific stock symbol
+    def __init__(self, symbol):
+        self.symbol = symbol
+        self.data = []
+        self.last_signal_index = -1
 
-    def update(self, new_data):
-        # Add new rows to buffer
-        for row in new_data:
-            self.prices.append((row["Timestamp"], row["Price"]))
+    # Adding new data points to the data (have checked
+    # whether they are added before by sorting it),
+    # basically track the data from both Apple and Microsoft
+    def data_point(self, new_data):
+        self.data.extend(new_data)
+        self.data.sort(key=lambda x: x[0])  # Sort by datetime
 
-        # Remove old data beyond 40 minutes
-        cutoff = datetime.utcnow() - timedelta(minutes=self.long_window)
-        self.prices = [(ts, p) for ts, p in self.prices if ts >= cutoff]
+    # The signal calculation, which is used for both 10 and 40 days signal calculation
+    def calculate_signals(self):
+        signals = []
 
-        # Sort just in case (Spark doesn't guarantee order)
-        self.prices.sort()
+        # Initialize the basic
+        ma_10day = []
+        ma_40day = []
 
-        # Compute moving averages
-        short_cutoff = datetime.utcnow() - timedelta(minutes=self.short_window)
-        short_prices = [p for ts, p in self.prices if ts >= short_cutoff]
-        long_prices = [p for ts, p in self.prices]
+        # Here is the part of calculating both 10_day and 40_day MA
+        for i in range(len(self.data)):
+            if i >= 9:  # Need at least 10 data points for 10-day MA
+                window_values = [self.data[j][1] for j in range(i-9, i+1)]
+                ma_10day.append(sum(window_values) / 10)
+            else:
+                ma_10day.append(None)
 
-        if len(short_prices) == 0 or len(long_prices) == 0:
-            return None  # Not enough data yet
+            if i >= 39:  # Need at least 40 data points for 40-day MA
+                window_values = [self.data[j][1] for j in range(i-39, i+1)]
+                ma_40day.append(sum(window_values) / 40)
+            else:
+                ma_40day.append(None)
 
-        short_ma = sum(short_prices) / len(short_prices)
-        long_ma = sum(long_prices) / len(long_prices)
+        # Only check for crossovers for new data points
+        start_index = self.last_signal_index + 1
 
-        # Detect crossover
-        if short_ma > long_ma and self.last_signal != "buy":
-            self.last_signal = "buy"
-            return ("buy", datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), "AAPL")
-        elif short_ma < long_ma and self.last_signal != "sell":
-            self.last_signal = "sell"
-            return ("sell", datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), "AAPL")
-        else:
-            return None  # No signal or same as last time
+        # Detect crossovers
+        for i in range(max(1, start_index), len(ma_10day)):
+            if ma_10day[i] is not None and ma_40day[i] is not None and ma_10day[i-1] is not None and ma_40day[i-1] is not None:
+
+                shares = int(100000 / self.data[i][1])  # Calculate number of shares to trade ($100K worth)
+
+                # Golden cross: 10-day MA crosses above 40-day MA (buy signal)
+                if ma_10day[i] > ma_40day[i] and ma_10day[i-1] <= ma_40day[i-1]:
+                    signals.append(f"({self.data[i][0]} buy {self.symbol}) - {shares} shares at ${self.data[i][1]:.2f}")
+
+                # Death cross: 10-day MA crosses below 40-day MA (sell signal)
+                elif ma_10day[i] < ma_40day[i] and ma_10day[i-1] >= ma_40day[i-1]:
+                    signals.append(f"({self.data[i][0]} sell {self.symbol}) - {shares} shares at ${self.data[i][1]:.2f}")
+
+        # Update the last signal index
+        self.last_signal_index = len(self.data) - 1
+        return signals
+
+
 
 # 💡 Create Spark Streaming Job
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: stream_stock.py <hostname> <port>", file=sys.stderr)
+        print("Usage: stream_twelvedata.py <hostname> <port>", file=sys.stderr)
         sys.exit(-1)
+
+    print ('Argv', sys.argv)
 
     host = sys.argv[1]
     port = int(sys.argv[2])
+    print ('host', type(host), host, 'port', type(port), port)
 
-    spark = SparkSession.builder.appName("AAPLDetector").getOrCreate()
-    spark.sparkContext.setLogLevel("WARN")
 
-    # Step 3: Read socket stream
-    raw = spark.readStream.format("socket").option("host", host).option("port", port).load()
+    sc_bak = SparkContext.getOrCreate()
+    sc_bak.stop()
 
-    # Step 4: Parse raw text into columns
-    stock = raw.select(
-        split(col("value"), " ").getItem(0).alias("Date"),
-        split(col("value"), " ").getItem(1).alias("Time"),
-        split(col("value"), " ").getItem(2).alias("Symbol"),
-        split(col("value"), " ").getItem(3).cast("float").alias("Price")
-    ).withColumn(
-        "Timestamp",
-        to_timestamp(concat_ws(" ", col("Date"), col("Time")), "yyyy-MM-dd HH:mm:ss")
-    ).filter(col("Symbol") == "AAPL").select("Timestamp", "Symbol", "Price")
+    time.sleep(15)
+    print ('Ready to work!')
+
+    ctx = pyspark.SparkContext(appName = "stock_data", master="local[*]")
+    print ('Context', ctx)
+
+    spark = SparkSession(ctx).builder.getOrCreate()
+    sc = spark.sparkContext
+
+    setLogLevel(sc, "WARN")
+
+    print ('Session:', spark)
+    print ('SparkContext', sc)
+
+      # Create DataFrame representing the stream of input lines from connection to host:port
+    data = spark\
+        .readStream\
+        .format('socket')\
+        .option('host', host)\
+        .option('port', port)\
+        .load()
+
+    stock = data.select(
+        split(data.value, ' ').getItem(0).alias('Date'),
+        split(data.value, ' ').getItem(1).alias('Time'),
+        split(data.value, ' ').getItem(2).alias('Symbol'),
+        split(data.value, ' ').getItem(3).cast('float').alias('Price')
+   )
+
+
+# Concatenate timestamp
+
+    stock_with_timestamp = stock.withColumn(
+    'Timestamp',
+    to_timestamp(concat_ws(' ', stock['Date'], stock['Time']), 'yyyy-MM-dd HH:mm:ss')
+    )
+
+
+# Filter for AAPL and MSFT prices
+    aaplPrice = stock.filter(col("Symbol") == "AAPL").select('Timestamp', 'Symbol', 'Price')
+    msftPrice = stock.filter(col("Symbol") == "MSFT").select('Timestamp', 'Symbol', 'Price')
 
     # Step 5: Initialize the detector
     detector = StockDetector()
 
     # Step 6: Custom foreachBatch logic
     def process_batch(df, epoch_id):
-        if df.isEmpty():
-            return
-        rows = df.collect()
-        signal = detector.update(rows)
-        if signal:
-            print([signal])  # Print like [('buy', '2025-04-12 15:20:00', 'AAPL')]
+     if df.count() == 0:
+        return
+     rows = df.collect()
+     signal = detector.update(rows)
+     if signal:
+        print([signal])
 
     # Step 7: Attach foreachBatch
-    query = stock.writeStream \
+    query = aaplPrice.writeStream \
         .outputMode("append") \
         .foreachBatch(process_batch) \
         .start()
