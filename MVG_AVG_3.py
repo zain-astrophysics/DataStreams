@@ -18,7 +18,7 @@ from pyspark.sql.types import TimestampType
 # Define a class to track stock data and detect crossovers
 class StockDetector:
     # Initializes a new tracker for a specific stock symbol
-    def __init__(self, symbol):
+    def __init__(self, symbol="AAPL"):
         self.symbol = symbol
         self.data = []
         self.last_signal_index = -1
@@ -137,16 +137,24 @@ if __name__ == "__main__":
     #msftPrice = stock.filter(col("Symbol") == "MSFT").select('Timestamp', 'Symbol', 'Price')
 
     # Step 5: Initialize the detector
-    detector = StockDetector()
+    detector = StockDetector(symbol="AAPL")
 
     # Step 6: Custom foreachBatch logic
     def process_batch(df, epoch_id):
      if df.count() == 0:
         return
      rows = df.collect()
-     signal = detector.update(rows)
-     if signal:
-        print([signal])
+    # Prepare the data and update the StockDetector instance
+    new_data = [(row["Timestamp"], row["Price"]) for row in rows]
+    detector.data_point(new_data)
+
+    # Calculate signals (buy/sell) based on moving averages
+    signals = detector.calculate_signals()
+
+    # Print signals
+    if signals:
+        for signal in signals:
+            print(signal)
 
     # Step 7: Attach foreachBatch
     query = aaplPrice.writeStream \
