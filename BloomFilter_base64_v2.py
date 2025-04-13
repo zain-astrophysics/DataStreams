@@ -95,6 +95,7 @@ if __name__ == "__main__":
     with open("/home/user/zainabbas199166/DataStreams/bloom_filter.txt", "w") as f:
         f.write(bit_array_base64)
 
+    # HDFS path
     hdfs_path = "/user/zainabbas199166/datastreams"
     os.system(f"hadoop fs -put ~/DataStreams/bloom_filter.txt {hdfs_path}")
 
