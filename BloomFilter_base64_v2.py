@@ -40,6 +40,7 @@ class BloomFilter:
         padded_str = fix_padding(encoded_str)
         bloom_filter.bit_array = bitarray.bitarray()
         bloom_filter.bit_array.frombytes(base64.b64decode(padded_str))
+        bloom_filter.bit_array = bloom_filter.bit_array[:size]
         return bloom_filter
 
 def load_bad_words():
